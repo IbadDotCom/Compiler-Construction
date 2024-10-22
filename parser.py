@@ -13,14 +13,16 @@ class SyntaxAnalyzer:
             self.current_token = self.tokens[self.pos]
         else:
             self.current_token = None
-    
+
     def consume(self, expected_type):
         """Consume a token if it matches the expected type."""
         if self.current_token and self.current_token[0] == expected_type:
             self.advance()
         else:
-            raise SyntaxError(f"Expected {expected_type}, got {self.current_token}")
-    
+            token = self.current_token[1] if self.current_token else None
+            line_number = self.current_token[2] if self.current_token else 'unknown'
+            raise SyntaxError(f"Syntax error at line {line_number}: Expected {expected_type}, got {token}")
+
     def parse_program(self):
         """Parse a program, which is a sequence of statements."""
         while self.current_token:
@@ -36,12 +38,14 @@ class SyntaxAnalyzer:
             elif self.current_token[1] == 'return':
                 self.parse_return_statement()
             else:
-                raise SyntaxError(f"Unexpected keyword {self.current_token[1]}")
+                line_number = self.current_token[2]
+                raise SyntaxError(f"Unexpected keyword '{self.current_token[1]}' at line {line_number}")
         elif self.current_token[0] == 'IDENTIFIER':
             self.parse_assignment()
         else:
-            raise SyntaxError(f"Unexpected token {self.current_token}")
-    
+            line_number = self.current_token[2]
+            raise SyntaxError(f"Unexpected token '{self.current_token[1]}' at line {line_number}")
+
     def parse_declaration(self):
         """Parse a variable declaration."""
         self.consume('KEYWORD')  # int or float
@@ -61,7 +65,7 @@ class SyntaxAnalyzer:
         """Parse an if statement."""
         self.consume('KEYWORD')  # if
         self.consume('PAREN')  # (
-        self.parse_expression()  # condition (which could include comparisons)
+        self.parse_expression()  # condition
         self.consume('PAREN')  # )
         self.parse_block()  # block of code
         if self.current_token and self.current_token[0] == 'KEYWORD' and self.current_token[1] == 'else':
@@ -82,10 +86,11 @@ class SyntaxAnalyzer:
         self.consume('BRACE')  # }
 
     def parse_expression(self):
-        """Parse an expression."""
+        """Parse an expression, including comparison operators."""
         self.parse_term()
-        while self.current_token and self.current_token[0] == 'OPERATOR' and self.current_token[1] in ('+', '-', '<', '>'):
-            self.consume('OPERATOR')  # +, -, <, or >
+        # Add support for comparison operators like <, >, <=, >=, ==, !=
+        while self.current_token and self.current_token[0] == 'OPERATOR' and self.current_token[1] in ('+', '-', '<', '>', '<=', '>=', '==', '!='):
+            self.consume('OPERATOR')  # comparison or arithmetic operator
             self.parse_term()
 
     def parse_term(self):
@@ -106,7 +111,8 @@ class SyntaxAnalyzer:
             self.parse_expression()
             self.consume('PAREN')  # )
         else:
-            raise SyntaxError(f"Unexpected token {self.current_token}")
+            line_number = self.current_token[2]
+            raise SyntaxError(f"Unexpected token '{self.current_token[1]}' at line {line_number}")
 
 if __name__ == '__main__':
     source_code = '''
@@ -122,6 +128,7 @@ if __name__ == '__main__':
     # Lexical Analysis
     lexer = LexicalAnalyzer(source_code)
     tokens = lexer.tokenize()
+    # print("Tokens:", tokens)
 
     # Syntax Analysis
     parser = SyntaxAnalyzer(tokens)
